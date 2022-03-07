@@ -28,24 +28,34 @@ class Table:
         for card in self.pot:
             self.winner.enstack(card)
 
+    def show_turn(self, player):
+        print("--" + player.name + "s turn--")
+        print("\tcurrent pot: " + str(len(self.pot)) + " card(s)")
+        print("\tcurrent bets: " + str(player.current_bet) + " card(s)")
+        print("\tyour stack: " + str(len(player.hand.stack)) + " card(s)")
+
     def start_game(self):
         while True:
+            self.call = 1
             for player in self.players:
                 player.unfold()
                 self.deck.deal(player, 5)
                 self.deck.deal_stack(player, 5)
             # start betting
             for player in self.players:
-                print("current pot: " + str(len(self.pot)))
+                self.show_turn(player)
                 player.call_phase(self.call)
             # bet phase
             for player in self.players:
+                self.show_turn(player)
                 self.call = player.bet_phase()
             # swap phase
             for player in self.players:
+                self.show_turn(player)
                 player.swap_phase()
             # bet/burn phase
             for player in self.players:
+                self.show_turn(player)
                 new_call = player.bet_or_burn_phase(self.call)
                 if self.call < new_call:
                     self.call = new_call
@@ -53,6 +63,7 @@ class Table:
             for player in self.players:
                 player.hand.calculate_rank()
                 self.check_winner(player)
+                self.winner.hand.show()
             # reward phase
             self.reward_winner()
 
@@ -70,7 +81,7 @@ class Player:
         self.state = PLAYING
 
     def prompt(self, msg):
-        answer = input(msg + "Y/n?: ")
+        answer = input(msg + " Y/n?: ")
         if answer == "n" or answer == "N":
             return False
         else:
@@ -118,7 +129,7 @@ class Player:
     def call_phase(self, quantity):
         if self.state != PLAYING:
             return self.current_bet
-        if self.prompt("Call to " + str(quantity)) and self.current_bet < quantity:
+        if self.prompt("Call to " + str(quantity) + "? ") and self.current_bet < quantity:
             self.bet(quantity - self.current_bet)
         elif self.current_bet > quantity:
             print("already called")
@@ -131,8 +142,9 @@ class Player:
 
     def discard_phase(self):
         self.current_bet = 0
-        while (len(self.hand.cards) > 0):
-            self.hand.discard(0)
+        for card in self.hand.cards:
+            card.discard()
+            self.deck.shuffle(card)
 
     def swap_phase(self):
         if self.state != PLAYING:
@@ -217,12 +229,14 @@ class Hand:
                 self.draw(burnt_card)
 
     def show(self):
+        self.calculate_rank()
         text = ""
         for card in self.cards:
             text += card.card_form()
         print(self.player_name)
         print(text)
         print(self.name)
+        print("Stack remaining: " + str(len(self.stack)))
 
     def __hand_to_vals__(self):
         vals = []
@@ -330,7 +344,6 @@ class Deck:
     NUMBER_OF_SUITS = 4
     POT = "Pot"
 
-#TODO: need to reshuffle when unable
     def __init__(self):
         self.cards = []
         for cardIndex in range(1, self.NUMBER_OF_CARDS):
@@ -341,10 +354,12 @@ class Deck:
         selection = filter(lambda x: not x.discarded and not x.drawn and not x.enstacked, self.cards)
         return list(selection)
 
-    def shuffle(self):
-        for card in self.cards:
-            if card.owner == DISCARD_PILE and card.discarded:
-                card.shuffle()
+    def shuffle(self, card):
+        card.drawn = False
+        card.betted = False
+        card.enstacked = False
+        card.discarded = False
+        self.cards.append(card)
 
     def deal(self, player, num_times=1):
         for times in range(num_times):
