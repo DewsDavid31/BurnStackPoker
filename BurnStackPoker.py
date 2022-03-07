@@ -142,9 +142,8 @@ class Player:
 
     def discard_phase(self):
         self.current_bet = 0
-        for card in self.hand.cards:
-            card.discard()
-            self.deck.shuffle(card)
+        while len(self.hand.cards) > 0:
+            self.deck.shuffle(self.hand.cards.pop())
 
     def swap_phase(self):
         if self.state != PLAYING:
@@ -288,27 +287,26 @@ class Hand:
                 self.flush = False
 
     def is_straight(self):
-        # TODO: comes back empty
-        # if len(self.cards) < 5 or not self.kind <= 1:
-        #     self.straight = False
-        #     return
-        # in_row = 1
-        # values = self.__hand_to_vals__()
-        # current = min(values)
-        # while len(values) > 0:
-        #     current = min(values)
-        #     if in_row >= 5:
-        #         self.straight = True
-        #         return
-        #     else:
-        #         values.remove(current)
-        #         next = min(values)
-        #         if next == current + 1:
-        #             in_row += 1
-        #             current = next
-        #         elif in_row < 5:
-        #             self.straight = False
-        return False
+        if len(self.cards) < 5 or not self.kind <= 1:
+            self.straight = False
+            return
+        in_row = 1
+        values = self.__hand_to_vals__()
+        current = min(values)
+        while len(values) > 0:
+            current = min(values)
+            if in_row >= 5:
+                self.straight = True
+                return
+            else:
+                values.remove(current)
+                next = min(values)
+                if next == current + 1:
+                    in_row += 1
+                    current = next
+                elif in_row < 5:
+                    self.straight = False
+                    return
 
     def is_high(self):
         self.has_high = False
