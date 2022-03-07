@@ -1,190 +1,187 @@
 import random
 
+DISCARD_PILE = "Discard"
+DECK = "Deck"
 
-class Player:
-    # Default size of stack for a player is 5 for now
-    # unless player number in a match or deflation of pots get out of hand.
-    def __init__(self, name, table):
-        self.name = name
-        self.hand = []
-        self.table = table
-        self.stack = Stack(table.stack_size, self.table.deck)
-        self.state = "Playing"
+
+class Hand:
+    HAND_NAMES = ["Royal Flush", "Straight Flush", "Four of a Kind", "Full House", "Flush", "Straight", "Three of a Kind", "Two Pair", "One Pair", "High Card"]
+
+    def __init__(self, player_name):
+        self.cards = []
+        self.royal = False
+        self.flush = False
+        self.straight = False
+        self.has_high = False
+        self.name = self.HAND_NAMES[10]
+        self.pairs = 0
+        self.kind = 0
+        self.rank = 9
+        self.player_name = player_name
 
     def show(self):
-        # For now, shows players name then each card in their hand in current drawn order
+        text = ""
+        for card in self.cards:
+            text += card.printed()
+        print(self.player_name)
+        print(text)
         print(self.name)
-        if len(self.stack.cards) <= 0:
-            print("Bankrupt, out of cards")
-            self.state = "Bankrupt"
-        else:
-            handstring = ""
-            for card in self.hand:
-                handstring += card.string()
-            print(handstring)
-            print("your stack remaining: " + str(len(self.stack.cards)))
 
-    def play_hand(self):
-        #TODO: behavior might not be as intended
-        copy = self.hand[:]
-        self.hand.clear()
-        return copy
+    def __hand_to_vals__(self):
+        vals = []
+        for card in self.cards:
+            vals.append(card.value)
+        return vals
 
-    def draw(self, quantity=1):
-        print("drawing  " + str(quantity) + " card(s)")
-        drawn_cards = self.table.deck.deal(quantity)
-        for card in drawn_cards:
-            self.hand.append(card)
+    def compare(self, hand):
+        return self.rank - hand.rank
 
-    def take_turn(self):
-        # used wrong python version for match
-        self.show()
-        option = input("-your turn- : ")
-        if option == "burn":
-            burnt_cards = self.stack.burn()
-            print("Burned into hand:")
-            for card in burnt_cards:
-                card.show()
-                self.hand.append(card)
-        elif option == "bet":
-            self.table.bet(self.stack.burn())
-        elif option == "play":
-            self.play_hand()
-            self.state = "Passing"
-        else:
-            print("Not an option")
+    def calculate_rank(self):
+        self.has_kind()
+        self.is_royal()
+        self.is_straight()
+        self.is_high()
+        if self.royal and self.flush and self.straight:
+            self.rank = 1
+        elif self.straight and self.flush:
+            self.rank = 2
+        elif self.kind >= 4:
+            self.rank = 3
+        elif self.royal:
+            self.rank = 4
+        elif self.flush:
+            self.rank = 5
+        elif self.straight:
+            self.rank = 6
+        elif self.kind == 3:
+            self.rank = 7
+        elif self.pairs >= 2:
+            self.rank = 8
+        elif self.kind == 2:
+            self.rank = 9
+        elif self.has_high:
+            self.rank = 10
+        self.name = self.HAND_NAMES[self.rank - 1]
+
+    def is_royal(self):
+        self.royal = True
+        for card in self.cards:
+            if not card.face:
+                self.royal = False
+
+    def is_flush(self):
+        self.flush = True
+        suit = self.cards[0].suit
+        for card in self.cards:
+            if card.suit != suit:
+                self.flush = False
+
+    def is_straight(self):
+        if len(self.cards) < 5 or not self.kind <= 1:
+            self.straight = False
+            return
+        in_row = 1
+        values = self.__hand_to_vals__()
+        current = min(values)
+        while (len(values) > 0):
+            if in_row >= 5:
+                self.straight = True
+                return
+            else:
+                values.remove(current)
+                next = min(values)
+                if next == current + 1:
+                    in_row += 1
+                    current = next
+                elif in_row < 5:
+                    self.straight = False
+
+    def is_high(self):
+        self.has_high = False
+        for card in self.cards:
+            if card.face:
+                self.has_high = True
+
+    def has_kind(self):
+        top_kind = 0
+        self.pairs = 0
+        self.kind = 0
+        kind = 0
+        types = []
+        for card in self.cards:
+            if top_kind < kind:
+                top_kind = kind
+            kind = 0
+            for comp_card in self.cards:
+                if kind >= 2:
+
+                    if types.count(card.value) <= 0:
+                        if len(types) > 0:
+                            self.pairs += 1
+
+                        types.append(card.value)
+                if comp_card.value == card.value:
+                    kind += 1
+        self.kind = top_kind
+
+
 class Deck:
     NUMBER_OF_CARDS = 52
     NUMBER_OF_SUITS = 4
+
     def __init__(self):
         self.cards = []
-        for cardIndex in range(1,self.NUMBER_OF_CARDS):
+        for cardIndex in range(1, self.NUMBER_OF_CARDS):
             # A bit ridiculous looking, but a modulo can find the suit and division can find value if in order of suit
-                self.cards.append(Card(cardIndex % self.NUMBER_OF_SUITS, round(cardIndex / self.NUMBER_OF_SUITS)))
+            self.cards.append(Card(cardIndex % self.NUMBER_OF_SUITS, round(cardIndex / self.NUMBER_OF_SUITS)))
 
-    def deal(self, num_times=1):
-        # shuffling is avoided by selecting and drawing a card at random from the deck
-        selected = 0
-        selected_cards = []
-        while(selected < num_times):
-            picked = random.randint(0,len(self.cards) - 1)
-            selected_cards.append(self.cards.pop(picked))
-            selected += 1
-        return selected_cards
+    def __in_deck__(self):
+        selection = filter(lambda x: not x.discarded and not x.drawn, self.cards)
+        return list(filter)
 
+    def shuffle(self):
+        for card in self.cards:
+            if card.owner == DISCARD_PILE and card.discarded:
+                card.shuffle()
 
-    def shuffle(self, cards):
-        for card in cards:
-            self.cards.append(card)
+    def draw(self, player, num_times=1):
+        for times in range(num_times):
+            selection = self.__in_deck__()
+            random.choice(selection).draw(player)
+
 
 class Card:
-    SUITS = {0:"♠",1:"♣",2:"♦",3:"♥"}
-    FACES = {0:"A",1:"J",2:"Q",3:"K"}
-    def __init__(self,suit,value):
+    SUITS = {0: "♠", 1: "♣", 2: "♦", 3: "♥"}
+    FACES = {0: "A", 1: "J", 2: "Q", 3: "K"}
+
+    def __init__(self, suit, value):
         self.suit = self.SUITS[suit]
         self.value = value
+        self.face = True if self.value > 10 else False
+        self.printed = self.suit + str(self.value) if not self.face else self.suit + str(self.FACES[value - 11])
+        self.owner = DECK
+        self.discarded = False
+        self.drawn = False
+
+    def card_form(self):
+        return "[" + self.printed + "]"
 
     def show(self):
-        if self.value > 10:
-            print("[" + str(self.suit) + "" + str(self.FACES[self.value - 11]) + "]")
+        print(self.card_form())
 
-        else:
-            print("[" + str(self.suit) + "" + str(self.value) + "]")
+    def draw(self, player):
+        self.drawn = True
+        self.owner = player
 
-    def string(self):
-        if self.value > 10:
-            return "[" + str(self.suit) + "" + str(self.FACES[self.value - 11]) + "]"
+    def discard(self):
+        self.owner = DISCARD_PILE
+        self.discarded = True
 
-        else:
-            return "[" + str(self.suit) + "" + str(self.value) + "]"
+    def shuffle(self):
+        self.owner = DECK
+        self.drawn = False
+        self.discarded = False
 
-class Stack:
-
-    def __init__(self, size, deck):
-        self.cards = []
-        self.size = size
-        self.deck = deck
-        drawn_cards = deck.deal(size)
-        for card in drawn_cards:
-            self.cards.append(card)
-
-    def gain(self, cards):
-        for card in cards:
-            self.cards.append(card)
-
-    def reset(self):
-        self.cards = []
-        drawn_cards = self.deck.deal(self.size)
-        for card in drawn_cards:
-            self.cards.append(card)
-
-    def burn(self, num_times=1):
-        selected = 0
-        selected_cards = []
-        if len(self.cards) <= 1:
-            return [self.cards.pop()]
-        while (selected < num_times):
-            picked = random.randint(0, len(self.cards) - 1)
-            selected_cards.append(self.cards.pop(picked))
-            selected += 1
-        return selected_cards
-
-
-class Table:
-
-    def __init__(self, stack_size=5):
-        self.pot = []
-        self.cards = []
-        self.players = []
-        self.deck = Deck()
-        self.stack_size = stack_size
-        self.state = "open"
-
-    def add_player(self, name):
-        added_player = Player(name, self)
-        self.players.append(added_player)
-
-    def bet(self, card):
-        self.pot.append(card)
-        print("-A stack card was bet-")
-        print("Current pot: " + str(len(self.pot)))
-
-    def clear_pot(self):
-        while(len(self.pot) > 0):
-            reshuffled_card = self.pot.pop()
-            self.deck.shuffle(reshuffled_card)
-
-
-    def start_game(self):
-        while(self.state != "closed"):
-            for player_dealt in self.players:
-                print("Dealing stacks and hands...")
-                self.clear_pot()
-                self.deck.shuffle(player_dealt.play_hand())
-                player_dealt.state = "Ready"
-                player_dealt.draw(5)
-                player_dealt.stack.reset()
-            passing_players = 0
-            while(passing_players < len(self.players)):
-                for player_turn in self.players:
-                    if player_turn.state != "Passing" and player_turn.state != "Bankrupt":
-                        player_turn.take_turn()
-                        player_turn.show()
-                    else:
-                        passing_players += 1
 
 if __name__ == "__main__":
-    test_table = Table()
-    test_table.add_player("you")
-    test_table.start_game()
-
-#Non-MVC portion
-
-class model:
-    pass
-
-class view:
-    pass
-
-class control:
     pass
