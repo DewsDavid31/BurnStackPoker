@@ -19,28 +19,34 @@ class Table:
 
     def check_winner(self, player):
         player.hand.calculate_rank()
-        if player.hand.rank < self.winnerRank:
+        if player.hand.rank <= self.winnerRank:
             self.winner = player
             self.winnerRank = player.hand.rank
             print(self.winner.name + " Wins!")
 
     def reward_winner(self):
-        for card in self.pot:
-            self.winner.enstack(card)
+        pot_list = []
+        while len(self.pot) > 0:
+            pot_list.append(self.pot.pop())
+        self.winner.enstack(pot_list)
 
     def show_turn(self, player):
         print("--" + player.name + "s turn--")
         print("\tcurrent pot: " + str(len(self.pot)) + " card(s)")
         print("\tcurrent bets: " + str(player.current_bet) + " card(s)")
         print("\tyour stack: " + str(len(player.hand.stack)) + " card(s)")
+        player.hand.show()
 
     def start_game(self):
+        for player in self.players:
+            self.deck.deal_stack(player, 5)
         while True:
             self.call = 1
             for player in self.players:
+                if player.state == BANKRUPT:
+                    self.deck.deal_stack(player, 5)
                 player.unfold()
                 self.deck.deal(player, 5)
-                self.deck.deal_stack(player, 5)
             # start betting
             for player in self.players:
                 self.show_turn(player)
@@ -48,7 +54,12 @@ class Table:
             # bet phase
             for player in self.players:
                 self.show_turn(player)
-                self.call = player.bet_phase()
+                new_call = player.bet_phase()
+                if self.call < new_call:
+                    self.call = new_call
+                    for player_called in self.players:
+                        self.show_turn(player_called)
+                        player_called.call_phase(self.call)
             # swap phase
             for player in self.players:
                 self.show_turn(player)
@@ -59,13 +70,20 @@ class Table:
                 new_call = player.bet_or_burn_phase(self.call)
                 if self.call < new_call:
                     self.call = new_call
+                    for player_called in self.players:
+                        self.show_turn(player_called)
+                        player_called.call_phase(self.call)
             # compare phase
             for player in self.players:
+                if len(player.hand.stack) <= 0:
+                    player.state = BANKRUPT
+                    print(player.name + " is bankrupt!")
                 player.hand.calculate_rank()
                 self.check_winner(player)
                 self.winner.hand.show()
             # reward phase
             self.reward_winner()
+
 
             for player in self.players:
                 player.discard_phase()
@@ -96,11 +114,10 @@ class Player:
         print(self.name + " Folded")
         self.state = FOLDED
 
-    def hand_prompt(self, msg):
+    def hand_prompt(self):
         selected = []
-        self.hand.show()
-        print(msg)
-        selection = input("Pick a card by integer index, -1 to not swap: ")
+        self.hand.show_cards()
+        selection = input("Pick a card by integer index to swap, -1 to not swap: ")
         if int(selection) >= 0:
             selected.append(int(selection))
         second_selection = input("Pick a second card by integer index, -1 to not swap: ")
@@ -108,8 +125,8 @@ class Player:
             selected.append(int(second_selection))
         return selected
 
-    def prompt_amount(self):
-        return int(input("Input amount as an Integer: "))
+    def prompt_amount(self, msg):
+        return int(input("Input " + msg + " as an Integer: "))
 
     def draw(self, card):
         self.hand.draw(card)
@@ -122,22 +139,21 @@ class Player:
 
     def bet_stack(self, amount):
         to_be_bet = self.bet(amount)
-        self.current_bet += amount
+        self.current_bet += len(to_be_bet)
         for card in to_be_bet:
             self.pot.append(card)
 
     def call_phase(self, quantity):
         if self.state != PLAYING:
             return self.current_bet
-        if self.prompt("Call to " + str(quantity) + "? ") and self.current_bet < quantity:
-            self.bet(quantity - self.current_bet)
-        elif self.current_bet > quantity:
-            print("already called")
-        else:
-            self.fold()
+        if self.current_bet < quantity:
+            if self.prompt("Call to " + str(quantity) + "? ") and self.current_bet < quantity:
+                self.bet_stack(quantity - self.current_bet)
+            else:
+                self.fold()
 
     def swap(self, index):
-        self.hand.discard(index)
+        self.deck.shuffle(self.hand.cards.pop(index))
         self.deck.deal(self)
 
     def discard_phase(self):
@@ -148,27 +164,24 @@ class Player:
     def swap_phase(self):
         if self.state != PLAYING:
             return
-        if self.prompt("Swap up to two cards"):
-            to_replace = self.hand_prompt("Choose swapped cards")
-            for replacement in to_replace:
-                self.swap(replacement)
-        self.show()
+        to_replace = self.hand_prompt()
+        for replacement in to_replace:
+            self.swap(replacement)
 
     def bet_phase(self):
         if self.state != PLAYING:
             return self.current_bet
-        if self.prompt("bet from stack"):
-            amount = self.prompt_amount()
-            self.hand.bet(amount)
+        amount = self.prompt_amount("bet (0 to not bet)")
+        if amount > 0:
+            self.bet_stack(amount)
         return self.current_bet
 
     def bet_or_burn_phase(self, quantity):
         if self.state != PLAYING:
             return self.current_bet
-        if self.prompt("burn from stack into hand"):
-            amount = self.prompt_amount()
+        amount = self.prompt_amount("burn cards from stack (0 to not burn)")
+        if amount > 0:
             self.burn(amount)
-            self.show()
         self.bet_phase()
         return self.current_bet
 
@@ -196,14 +209,10 @@ class Hand:
         self.rank = 9
         self.player_name = player_name
 
-    def discard(self, index):
-        to_be_discarded = self.cards.pop(index)
-        to_be_discarded.discard()
-
     def bet(self, amount=1):
         if amount > len(self.stack):
             print("Out of Stack")
-            return
+            return []
         selected_cards = []
         for times in range(amount):
             betted_card = self.stack.pop()
@@ -232,10 +241,21 @@ class Hand:
         text = ""
         for card in self.cards:
             text += card.card_form()
-        print(self.player_name)
-        print(text)
-        print(self.name)
-        print("Stack remaining: " + str(len(self.stack)))
+        print( "\t"+ self.player_name + "\'s hand:")
+        print("\t" + text)
+        print("\t" + self.name)
+
+    def show_cards(self):
+        self.calculate_rank()
+        text = ""
+        undertext = ""
+        index = 0
+        for card in self.cards:
+            text += card.card_form()
+            undertext += "\t" + str(index)
+            index += 1
+        print("\t" + text)
+        print(undertext)
 
     def __hand_to_vals__(self):
         vals = []
@@ -361,14 +381,12 @@ class Deck:
 
     def deal(self, player, num_times=1):
         for times in range(num_times):
-            #TODO this doesn't work
             selected_card = random.choice(self.cards)
             player.draw(selected_card)
             self.cards.remove(selected_card)
 
     def deal_stack(self, player, num_times=1):
         for times in range(num_times):
-            # TODO this doesn't work
             selected_card = random.choice(self.cards)
             player.enstack([selected_card])
             self.cards.remove(selected_card)
