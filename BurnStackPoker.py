@@ -2,6 +2,7 @@ import random
 
 DISCARD_PILE = "Discard"
 DECK = "Deck"
+POT = "Pot"
 PLAYING = "Playing"
 FOLDED = "Folded"
 BANKRUPT = "Bankrupt"
@@ -12,10 +13,14 @@ class Table:
         self.pot = []
         self.deck = Deck()
         self.players = players
-        self.winner = Player("nobody", self.pot, self.deck)
+        self.winner = Player("nobody")
         self.winnerRank = 10
         self.call = 1
 
+    def add_player(self, player):
+        player.pot = self.pot
+        player.deck = self.deck
+        self.players.append(player)
 
     def check_winner(self, player):
         player.hand.calculate_rank()
@@ -28,7 +33,7 @@ class Table:
         pot_list = []
         while len(self.pot) > 0:
             pot_list.append(self.pot.pop())
-        self.winner.enstack(pot_list)
+        self.winner.add_to_stack(pot_list)
 
     def show_turn(self, player):
         print("--" + player.name + "s turn--")
@@ -83,22 +88,21 @@ class Table:
                 self.winner.hand.show()
             # reward phase
             self.reward_winner()
-
-
             for player in self.players:
                 player.discard_phase()
 
 
 class Player:
-    def __init__(self, name, pot, deck):
+    def __init__(self, name):
         self.name = name
         self.hand = Hand(name)
-        self.pot = pot
-        self.deck = deck
+        self.pot = []
+        self.deck = Deck()
         self.current_bet = 0
         self.state = PLAYING
 
-    def prompt(self, msg):
+    @staticmethod
+    def prompt(msg):
         answer = input(msg + " Y/n?: ")
         if answer == "n" or answer == "N":
             return False
@@ -125,7 +129,8 @@ class Player:
             selected.append(int(second_selection))
         return selected
 
-    def prompt_amount(self, msg):
+    @staticmethod
+    def prompt_amount(msg):
         return int(input("Input " + msg + " as an Integer: "))
 
     def draw(self, card):
@@ -134,8 +139,8 @@ class Player:
     def burn(self, amount):
         self.hand.burn(amount)
 
-    def enstack(self, cards):
-        self.hand.enstack(cards)
+    def add_to_stack(self, cards):
+        self.hand.add_to_stack(cards)
 
     def bet_stack(self, amount):
         to_be_bet = self.bet(amount)
@@ -176,7 +181,7 @@ class Player:
             self.bet_stack(amount)
         return self.current_bet
 
-    def bet_or_burn_phase(self, quantity):
+    def bet_or_burn_phase(self):
         if self.state != PLAYING:
             return self.current_bet
         amount = self.prompt_amount("burn cards from stack (0 to not burn)")
@@ -215,15 +220,15 @@ class Hand:
             return []
         selected_cards = []
         for times in range(amount):
-            betted_card = self.stack.pop()
-            betted_card.bet()
-            selected_cards.append(betted_card)
+            bet_card = self.stack.pop()
+            bet_card.bet()
+            selected_cards.append(bet_card)
         return selected_cards
 
     def draw(self, card):
         self.cards.append(card)
 
-    def enstack(self, cards):
+    def add_to_stack(self, cards):
         for card in cards:
             self.stack.append(card)
 
@@ -241,21 +246,21 @@ class Hand:
         text = ""
         for card in self.cards:
             text += card.card_form()
-        print( "\t"+ self.player_name + "\'s hand:")
+        print("\t" + self.player_name + "\'s hand:")
         print("\t" + text)
         print("\t" + self.name)
 
     def show_cards(self):
         self.calculate_rank()
         text = ""
-        undertext = ""
+        under_text = ""
         index = 0
         for card in self.cards:
             text += card.card_form()
-            undertext += "\t" + str(index)
+            under_text += "\t" + str(index)
             index += 1
         print("\t" + text)
-        print(undertext)
+        print(under_text)
 
     def __hand_to_vals__(self):
         vals = []
@@ -312,7 +317,6 @@ class Hand:
             return
         in_row = 1
         values = self.__hand_to_vals__()
-        current = min(values)
         while len(values) > 0:
             current = min(values)
             if in_row >= 5:
@@ -320,10 +324,9 @@ class Hand:
                 return
             else:
                 values.remove(current)
-                next = min(values)
-                if next == current + 1:
+                next_in_row = min(values)
+                if next_in_row == current + 1:
                     in_row += 1
-                    current = next
                 elif in_row < 5:
                     self.straight = False
                     return
@@ -360,7 +363,6 @@ class Hand:
 class Deck:
     NUMBER_OF_CARDS = 52
     NUMBER_OF_SUITS = 4
-    POT = "Pot"
 
     def __init__(self):
         self.cards = []
@@ -369,13 +371,13 @@ class Deck:
             self.cards.append(Card(cardIndex % self.NUMBER_OF_SUITS, round(cardIndex / self.NUMBER_OF_SUITS)))
 
     def __in_deck__(self):
-        selection = filter(lambda x: not x.discarded and not x.drawn and not x.enstacked, self.cards)
+        selection = filter(lambda x: not x.discarded and not x.drawn and not x.in_stack, self.cards)
         return list(selection)
 
     def shuffle(self, card):
         card.drawn = False
-        card.betted = False
-        card.enstacked = False
+        card.in_pot = False
+        card.in_stack = False
         card.discarded = False
         self.cards.append(card)
 
@@ -388,10 +390,10 @@ class Deck:
     def deal_stack(self, player, num_times=1):
         for times in range(num_times):
             selected_card = random.choice(self.cards)
-            player.enstack([selected_card])
+            player.add_to_stack([selected_card])
             self.cards.remove(selected_card)
 
-    def enstack(self, player, num_times=1):
+    def add_to_stack(self, player, num_times=1):
         selected = []
         for times in range(num_times):
             selection = self.__in_deck__()
@@ -403,7 +405,6 @@ class Deck:
 class Card:
     SUITS = {0: "♠", 1: "♣", 2: "♦", 3: "♥"}
     FACES = {0: "A", 1: "J", 2: "Q", 3: "K"}
-    POT = "Pot"
 
     def __init__(self, suit, value):
         self.suit = self.SUITS[suit]
@@ -413,8 +414,8 @@ class Card:
         self.owner = DECK
         self.discarded = False
         self.drawn = False
-        self.enstacked = False
-        self.betted = False
+        self.in_stack = False
+        self.in_pot = False
 
     def card_form(self):
         return "[" + self.printed + "]"
@@ -424,11 +425,11 @@ class Card:
 
     def draw(self, player):
         self.drawn = True
-        self.enstacked = False
+        self.in_stack = False
         self.owner = player
 
     def enstack(self, player):
-        self.enstacked = True
+        self.in_stack = True
         self.drawn = False
         self.owner = player
 
@@ -437,18 +438,19 @@ class Card:
         self.discarded = True
 
     def bet(self):
-        self.betted = True
-        self.owner = self.POT
+        self.in_pot = True
+        self.owner = POT
 
     def shuffle(self):
         self.owner = DECK
         self.drawn = False
         self.discarded = False
 
+
 if __name__ == "__main__":
     test_table = Table([])
-    test_player = Player("dave",test_table.pot,test_table.deck)
-    test_player_2 = Player("not dave",test_table.pot,test_table.deck)
-    test_table.players.append(test_player)
-    test_table.players.append(test_player_2)
+    test_player = Player("dave")
+    test_player_2 = Player("not dave")
+    test_table.add_player(test_player)
+    test_table.add_player(test_player_2)
     test_table.start_game()
