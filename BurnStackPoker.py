@@ -72,7 +72,7 @@ class Table:
             # bet/burn phase
             for player in self.players:
                 self.show_turn(player)
-                new_call = player.bet_or_burn_phase(self.call)
+                new_call = player.bet_or_burn_phase()
                 if self.call < new_call:
                     self.call = new_call
                     for player_called in self.players:
@@ -283,6 +283,7 @@ class Hand:
         elif self.kind >= 4:
             self.rank = 3
         elif self.royal:
+            #TODO: full house is more complicated
             self.rank = 4
         elif self.flush:
             self.rank = 5
