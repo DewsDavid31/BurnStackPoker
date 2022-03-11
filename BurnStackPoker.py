@@ -282,8 +282,8 @@ class Hand:
             self.rank = 2
         elif self.kind >= 4:
             self.rank = 3
-        elif self.royal:
-            #TODO: full house is more complicated
+        elif self.kind >= 3 and self.pairs >= 1:
+            # full house changed
             self.rank = 4
         elif self.flush:
             self.rank = 5
