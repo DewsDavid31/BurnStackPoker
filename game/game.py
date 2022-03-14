@@ -1,3 +1,4 @@
+import math
 import random
 
 DISCARD_PILE = "Discard"
@@ -196,6 +197,9 @@ class Player:
     def show(self):
         self.hand.show()
 
+    def show_unicode(self):
+        self.hand.show_unicode()
+
 
 class Hand:
     HAND_NAMES = ["Royal Flush", "Straight Flush", "Four of a Kind", "Full House", "Flush", "Straight",
@@ -249,6 +253,20 @@ class Hand:
         print("\t" + self.player_name + "\'s hand:")
         print("\t" + text)
         print("\t" + self.name)
+
+    def show_unicode(self):
+        self.calculate_rank()
+        text = ""
+        for card in self.cards:
+            text += card.unicode
+        return text
+
+    def show_string(self):
+        self.calculate_rank()
+        text = ""
+        for card in self.cards:
+            text += card.card_form()
+        return text
 
     def show_cards(self):
         self.calculate_rank()
@@ -364,12 +382,17 @@ class Hand:
 class Deck:
     NUMBER_OF_CARDS = 52
     NUMBER_OF_SUITS = 4
+    CARDS_PER_SUIT = 14
 
     def __init__(self):
         self.cards = []
-        for cardIndex in range(1, self.NUMBER_OF_CARDS):
+        for cardIndex in range(1, self.NUMBER_OF_CARDS + 4):
             # A bit ridiculous looking, but a modulo can find the suit and division can find value if in order of suit
-            self.cards.append(Card(cardIndex % self.NUMBER_OF_SUITS, round(cardIndex / self.NUMBER_OF_SUITS)))
+            card_suit = math.floor(cardIndex / self.CARDS_PER_SUIT)
+            card_val = cardIndex % self.CARDS_PER_SUIT
+            if card_val == 1 or card_val == 0 and card_suit == 0 :
+                continue
+            self.cards.append(Card(card_suit,card_val))
 
     def __in_deck__(self):
         selection = filter(lambda x: not x.discarded and not x.drawn and not x.in_stack, self.cards)
@@ -406,9 +429,18 @@ class Deck:
 class Card:
     SUITS = {0: "♠", 1: "♣", 2: "♦", 3: "♥"}
     FACES = {0: "A", 1: "J", 2: "Q", 3: "K"}
+    UNICODES_SPADES = ["","🂢", "🂣", "🂤", "🂥", "🂦", "🂧", "🂨", "🂩", "🂪", "🂡", "🂫", "🂭", "🂮"]
+    UNICODES_CLUBS = ["","🃒", "🃓", "🃔", "🃕",
+                "🃖", "🃗", "🃘", "🃙", "🃚", "🃑", "🃛", "🃝", "🃞"]
+
+    UNICODES_DIAMONDS =["","🃂", "🃃", "🃄", "🃅", "🃆", "🃇", "🃈", "🃉",
+                "🃊", "🃁", "🃋", "🃍", "🃎"]
+    UNICODES_HEARTS = ["","🂲", "🂳", "🂴", "🂵", "🂶", "🂷", "🂸", "🂹", "🂺", "🂱", "🂻", "🂽",
+                "🂾"]
 
     def __init__(self, suit, value):
         self.suit = self.SUITS[suit]
+        self.suit_num = suit
         self.value = value
         self.face = True if self.value > 10 else False
         self.printed = self.suit + str(self.value) if not self.face else self.suit + str(self.FACES[value - 11])
@@ -417,6 +449,16 @@ class Card:
         self.drawn = False
         self.in_stack = False
         self.in_pot = False
+        if self.suit_num == 0:
+            self.unicode = self.UNICODES_SPADES[self.value - 1]
+        elif self.suit_num == 1:
+            self.unicode = self.UNICODES_CLUBS[self.value - 1]
+        elif self.suit_num == 2:
+            self.unicode = self.UNICODES_DIAMONDS[self.value - 1]
+        else:
+            self.unicode = self.UNICODES_HEARTS[self.value - 1]
+
+
 
     def card_form(self):
         return "[" + self.printed + "]"
