@@ -7,6 +7,12 @@ POT = "Pot"
 PLAYING = "Playing"
 FOLDED = "Folded"
 BANKRUPT = "Bankrupt"
+DRAW_PHASE = "draw"
+BET_PHASE = "bet"
+BET_BURN_PHASE = "bet burn"
+REWARD_PHASE = "reward"
+DISCARD_PHASE = "discard"
+SWAP_PHASE = "swap"
 
 
 class Table:
@@ -17,6 +23,8 @@ class Table:
         self.winner = Player("nobody")
         self.winnerRank = 10
         self.call = 1
+        self.state = DRAW_PHASE
+        self.you = Player("you")
 
     def add_player(self, player):
         player.pot = self.pot
@@ -30,6 +38,12 @@ class Table:
             self.winnerRank = player.hand.rank
             print(self.winner.name + " Wins!")
 
+    def check_winner_django(self, player):
+        player.hand.calculate_rank()
+        if player.hand.rank <= self.winnerRank:
+            self.winner = player
+            self.winnerRank = player.hand.rank
+
     def reward_winner(self):
         pot_list = []
         while len(self.pot) > 0:
@@ -42,6 +56,45 @@ class Table:
         print("\tcurrent bets: " + str(player.current_bet) + " card(s)")
         print("\tyour stack: " + str(len(player.hand.stack)) + " card(s)")
         player.hand.show()
+
+    def next_phase(self):
+        # TODO: needs to update page, needs persistence from local sql
+            if self.state == DRAW_PHASE:
+                self.call = 1
+                if self.you.state == BANKRUPT or len(self.you.hand.stack) < 1:
+                    self.deck.deal_stack(self.you, 5)
+                    self.you.unfold()
+                    self.deck.deal(self.you, 5)
+                    self.state = BET_PHASE
+            elif self.state == BET_PHASE:
+                # bet phase
+                    new_call = self.you.current_bet
+                    if self.call < new_call:
+                        self.call = new_call
+                        self.you.call_phase_django(self.call)
+                    self.state = SWAP_PHASE
+            elif self.state == SWAP_PHASE:
+                # swap phase
+                self.state = BET_BURN_PHASE
+            elif self.state == BET_BURN_PHASE:
+                # bet/burn phase
+                new_call = self.you.current_bet
+                if self.call < new_call:
+                    self.call = new_call
+                    self.you.call_phase_django(self.call)
+                self.state = REWARD_PHASE
+            elif self.state == REWARD_PHASE:
+                # compare phase
+                if len(self.you.hand.stack) <= 0:
+                    self.you.state = BANKRUPT
+                    self.you.hand.calculate_rank()
+                    self.check_winner_django(self.you)
+                # reward phase
+                self.reward_winner()
+                self.state = DISCARD_PHASE
+            else:
+                self.you.discard_phase()
+                self.state = DRAW_PHASE
 
     def start_game(self):
         for player in self.players:
@@ -158,6 +211,14 @@ class Player:
             else:
                 self.fold()
 
+    def call_phase_django(self, quantity):
+        if self.state != PLAYING:
+            return self.current_bet
+        if self.current_bet < quantity:
+            self.bet_stack(quantity - self.current_bet)
+        else:
+            self.fold()
+
     def swap(self, index):
         self.deck.shuffle(self.hand.cards.pop(index))
         self.deck.deal(self)
@@ -181,6 +242,7 @@ class Player:
         if amount > 0:
             self.bet_stack(amount)
         return self.current_bet
+
 
     def bet_or_burn_phase(self):
         if self.state != PLAYING:

@@ -19,5 +19,5 @@ from .views import geeks_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', geeks_view)
+    path('', geeks_view),
 ]
