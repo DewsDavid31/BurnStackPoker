@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from game.game import Deck, Player, Table
+from game_obj.game import Deck, Player, Table
 
 
 def geeks_view(request):
