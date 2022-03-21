@@ -26,6 +26,11 @@ class Table:
         self.state = DRAW_PHASE
         self.you = Player("you")
 
+    def load(self, name, hand, stack):
+        self.you = Player(name)
+        self.you.hand.load_unicode(hand)
+        self.deck.deal_stack(self.you, stack)
+
     def add_player(self, player):
         player.pot = self.pot
         player.deck = self.deck
@@ -280,6 +285,35 @@ class Hand:
         self.rank = 9
         self.player_name = player_name
 
+    def card_values(self):
+        vals = []
+        for card in self.cards:
+            vals.append(card.value)
+        return vals
+
+    def card_suits(self):
+        suits = []
+        for card in self.cards:
+            suits.append(card.suit_num)
+        return suits
+
+    def load_unicode(self, unicode):
+        self.cards = []
+        for code in unicode:
+            if code in Card.UNICODES_DIAMONDS:
+                index = Card.UNICODES_DIAMONDS.index(code)
+                self.cards.append(Card(2, index))
+
+            elif code in Card.UNICODES_CLUBS:
+                index = Card.UNICODES_CLUBS.index(code)
+                self.cards.append(Card(1, index))
+
+            elif code in Card.UNICODES_SPADES:
+                index = Card.UNICODES_SPADES.index(code)
+                self.cards.append(Card(0, index))
+            else:
+                index = Card.UNICODES_HEARTS.index(code)
+                self.cards.append(Card(3, index))
     def bet(self, amount=1):
         if amount > len(self.stack):
             print("Out of Stack")
