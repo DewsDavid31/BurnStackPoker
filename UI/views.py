@@ -1,59 +1,82 @@
 from django.shortcuts import render
-from game_obj.models import PlayerModel
-from game_obj.game import Deck, Player, Table
+from game_obj.models import TableModel
+from game_obj.TableController import TableController
 
 
-def __next_phase__(test_table):
-    test_table.next_phase()
-    p = PlayerModel.objects.get(name='you')
-    p.phase = test_table.state
-    p.hand = test_table.you.hand.show_unicode()
-    test_table.you.hand.calculate_rank()
-    p.hand_name = test_table.you.hand.name
-    p.stack = len(test_table.you.hand.stack)
-    p.save()
+def update_table(table, model):
+    state_tuple = table.save_state()
+    model.state = state_tuple[0]
+    model.user_name = state_tuple[1]
+    model.user_hand = state_tuple[2]
+    model.user_stack = state_tuple[3]
+    model.player_names = state_tuple[4]
+    model.player_hands = state_tuple[5]
+    model.player_stacks = state_tuple[6]
+    model.hand_name = table.you.hand.name
+    model.phase = table.get_state()
+    model.user_stack_length = len(state_tuple[3])
+    model.save()
 
 
-def __bet__(test_table):
-    test_table.you.bet()
-    p = PlayerModel.objects.get(name='you')
-    p.stack = len(test_table.you.hand.stack)
-    p.save()
+def update_local_table(table, model):
+    table.load_state(model.state, model.user_name, model.user_hand, model.user_stack, model.player_names,
+                     model.player_hands, model.player_stacks)
 
 
-def __burn__(test_table):
-    test_table.you.burn(1)
-    test_table.you.hand.calculate_rank()
-    p = PlayerModel.objects.get(name='you')
-    p.stack = len(test_table.you.hand.stack)
-    p.hand = test_table.you.hand.show_unicode()
-    p.hand_name = test_table.you.hand.name
-    p.save()
+def __burn__button__handle(table, model):
+    table.burn_button()
+    update_table(table, model)
+
+
+
+def __bet__button__handle(table, model):
+    table.bet_button()
+    update_table(table, model)
+
+
+def __pass__button__handle(table, model):
+    table.pass_button()
+    update_table(table, model)
+
+
+def __fold__button__handle(table, model):
+    table.fold_button()
+    update_table(table, model)
 
 
 def geeks_view(request):
     # create a dictionary to pass
     # data to the template
-
-    if len(PlayerModel.objects.filter(name='you')) < 1:
-        test_table = Table([])
-        test_table.next_phase()
-        p = PlayerModel.objects.create(name='you', hand_name=test_table.you.hand.name,
-                                       hand=test_table.you.hand.show_unicode(), stack=len(test_table.you.hand.stack),
-                                       phase=test_table.state)
-        p.save()
+    our_table = TableController()
+    if len(TableModel.objects.all()) < 1:
+        our_model = TableModel.objects.create(state=our_table.state, user_name=our_table.you.name,
+                                              user_hand=our_table.you.hand.show_unicode(),
+                                              user_stack=our_table.you.hand.show_stack_unicode(),
+                                              player_names=our_table.get_names(),
+                                              player_hands=our_table.get_player_hands(),
+                                              player_stacks=our_table.get_player_stacks(),
+                                              user_stack_length=len(our_table.you.hand.stack),
+                                              phase=our_table.get_state(),
+                                              table_log="", hand_name=our_table.you.hand.name)
+        our_model.save()
     else:
-        p = PlayerModel.objects.get(name='you')
-        test_table = Table([])
-        test_table.load(p.name, p.hand, p.stack)
+        our_model = TableModel.objects.get()
+        update_local_table(our_table, our_model)
+
     context = {
-        "phase": PlayerModel.objects.filter(name='you')[0].phase,
-        "hand": PlayerModel.objects.filter(name='you')[0].hand,
-        "stack": PlayerModel.objects.filter(name='you')[0].stack,
-        "hand_name": PlayerModel.objects.filter(name='you')[0].hand_name,
-        "bet": __bet__(test_table),
-        "burn": __burn__(test_table),
-        "pass": __next_phase__(test_table),
+        "state": our_model.state,
+        "user_name": our_model.user_name,
+        "user_hand": our_model.user_hand,
+        "user_stack": our_model.user_stack,
+        "player_names": our_model.player_names,
+        "player_stacks": our_model.player_stacks,
+        "burn_button": __burn__button__handle(our_table, our_model),
+        "bet_button": __bet__button__handle(our_table, our_model),
+        "fold_button": __fold__button__handle(our_table, our_model),
+        "pass_button": __pass__button__handle(our_table, our_model),
+        "phase": our_model.phase,
+        "user_stack_length": our_model.user_stack_length,
+        "hand_name": our_model.hand_name,
     }
     # return response with template and context
     return render(request, "geeks.html", context)

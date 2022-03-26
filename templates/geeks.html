@@ -8,14 +8,17 @@
 </head>
 <body>
     <h1>Table 1</h1>
-    <p> Your turn to : {{  phase }}</p>
-    <p> Hand:<font size="50">{{  hand }}</font></p>
+    <p> Table Chat: {{ log }}</p>>
+    <p> {{  phase }}</p>
+    <p> Hand:<font size="50">{{  user_hand }}</font></p>
 
-    <p> stack card(s) remaining:{{  stack }}</p>
+    <p> stack card(s) remaining:{{  user_stack_length }}</p>
     <li>{{ hand_name }}</li>
-    <button type="submit" value={{bet}} name='mybtn1'>Bet</button>
-    <button type="submit" value={{burn}} name='mybtn2'>Burn</button>
-    <button type="submit" value={{pass}} name='mybtn3'>Pass</button>
+    <button type="submit" value={{bet_button}} name='mybtn1'>Bet</button>
+    <button type="submit" value={{burn_button}} name='mybtn2'>Burn</button>
+    <button type="submit" value={{fold_button}} name='mybtn3'>Fold</button>
+    <button type="submit" value={{swap_button}} name='mybtn3'>Swap</button>
+    <button type="submit" value={{pass_button}} name='mybtn4'>Pass</button>
 
 </body>
 </html>

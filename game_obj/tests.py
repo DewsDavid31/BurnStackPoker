@@ -2,7 +2,7 @@ from django.test import TestCase
 # Create your tests here.
 
 
-from game_obj import game
+from terminal_version import game
 
 
 class GameTestCase(TestCase):
