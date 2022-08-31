@@ -370,10 +370,10 @@ class Hand:
         under_text = ""
         index = 0
         for card in self.cards:
-            text += card.card_form()
+            text += "\t" + card.card_form()
             under_text += "\t" + str(index)
             index += 1
-        print("\t" + text)
+        print(text)
         print(under_text)
 
     def __hand_to_vals__(self):
