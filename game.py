@@ -1,6 +1,8 @@
 import random as rand
 SUITS = "♥♦♠♣"
 VALUES = "123456789JQK"
+PHASES = ["Bet Phase", "Burn and Swap Phase", "Show Phase"]
+SPECIAL_INPUT=['p','P']
 
 def index_to_card(index):
   suit = SUITS[round((index + 1) / 12) - 1]
@@ -11,6 +13,7 @@ class deck:
   def __init__(self):
     self.drawn = [];
     self.decksize = 52;
+    self.phase = PHASES[0]
     for x in range(0,52):
       self.drawn.append("Dealer")
 
@@ -26,6 +29,7 @@ class deck:
     self.draw_n_times(new_owner, 1)
     
   def give(self, index, new_owner):
+    print(self.drawn[index] + " to " + new_owner)
     self.drawn[index] = new_owner
     
   def shuffle(self, from_owner):
@@ -33,6 +37,13 @@ class deck:
       if(self.drawn[x] == from_owner or from_owner == "All" and self.drawn[x] != "Dealer"):
         self.drawn[x] = "Dealer"
         self.decksize+=1
+        
+  def find_num_owner(self, owner):
+    stack_size = 0
+    for x in range(0,52):
+      if self.drawn[x] == owner:
+        stack_size +=1
+    return stack_size
 
   def show_owner(self, owner):
     for x in range(0,52):
@@ -50,11 +61,9 @@ class deck:
     converted = owner
     if owner == "Dealer":
       converted = "Deck"
-    stack_size = 0
-    for x in range(0,52):
-      if self.drawn[x] == owner:
-        stack_size +=1
-        
+    if owner == "Pot":
+      converted = "Bets"
+    stack_size = self.find_num_owner(owner)
     ten_stacks = round(stack_size / 10)
     without_tens = ten_stacks % 10
     if stack_size < 10:
@@ -67,14 +76,28 @@ class deck:
 
 
   def show_table(self, player):
+    burn_prompt = "Burn a card into hand"
+    if self.phase == "Bet Phase":
+      burn_prompt = "Bet a card from stack"
     self.show_stacks("opponent\'s stack")
     self.show_owner_hidden("opponent")
     print("")
+    print("")
+    print("")
+    print("\t\t\t\t Phase: " + self.phase + " [Enter P to pass]")
     self.show_stacks("Dealer")
+    self.show_stacks("Pot")
+    print("")
+    print("")
+    print("")
     print("")
     print("")
     self.show_owner(player)
-    print("  1    2    3    4    5    6: Burn a card into hand")
+    next_card = self.find_num_owner(player)
+    for x in range(1, next_card + 1):
+      print(str(x) + "    ", end = "")
+    if(self.find_num_owner(player + "\'s stack") >= 1):
+      print(str(next_card + 1) + ": " + burn_prompt)
     self.show_stacks(player + "\'s stack")
 
   def find_next(self, owner):
@@ -87,20 +110,41 @@ class deck:
     current = 0
     for x in range(0,52):
       if self.drawn[x] == owner:
-        current+=1
-        if current == index:
+        if current + 1 == index:
           return x
+        current+=1
     return -1
+  
+  def clear_screen(self):
+    for x in range(60):
+      print("")
 
+  def next_phase(self):
+    self.phase = PHASES[((PHASES.index(self.phase) + 1) % len(PHASES))]
   def menu(self, selection, player):
+    self.clear_screen()
+    self.show_table(player)
+    prompt = "Enter a number to swap/select: "
+    if self.phase == "Bet Phase":
+      prompt = "Select a card to use as betting chip: "
     if selection == 0:
-      self.show_table(player)
-      select = input("Enter a number to select: ")
-      return self.menu(select, player)
-    elif selection == 6:
-      self.give(self.find_next_index(player + "\'s stack",1,), player)
+      select = input(prompt)
+      if select in SPECIAL_INPUT:
+        return self.menu(select, player)
+      return self.menu(int(select), player)
+    elif selection == self.find_num_owner(player) + 1:
+      if self.phase == "Bet Phase":
+        self.give(self.find_next(player + "\'s stack"), "Pot")
+        return self.menu(0,player)
+      self.give(self.find_next(player + "\'s stack"), player)
       return self.menu(0, player)
+    elif selection == 'P' or selection == 'p':
+      self.next_phase()
+      self.menu(0,player)
     else:
+      if self.phase == "Bet Phase":
+        self.give(self.find_next_index(player, int(selection)),"Pot")
+      return self.menu(0, player)
       self.give(self.find_next_index(player, int(selection)), "Discard")
       self.draw(player)
       return self.menu(0, player)
