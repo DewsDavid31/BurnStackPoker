@@ -1,19 +1,19 @@
 import random as rand
 SUITS = "♥♦♠♣"
-VALUES = "123456789JQK"
+VALUES = "A23456789TJQK"
 PHASES = ["Bet Phase", "Burn and Swap Phase", "Show Phase","Draw Phase"]
-SPECIAL_INPUT=['p','P']
+SPECIAL_INPUT=['p','P', 'f', 'F']
 
 def index_to_card(index):
-  suit = SUITS[round((index + 1) / 12) - 1]
-  value = VALUES[((index + 1) % 4) - 1]
+  suit = SUITS[round((index + 1) / 13) - 1]
+  value = VALUES[((index + 1) % 13) - 1]
   return "[" + suit + value + "]"
 
 def index_to_value(index):
-  return ((index + 1) % 4) - 1
+  return ((index + 1) % 13)
 
 def index_to_suit(index):
-  return round((index + 1) / 12) - 1
+  return round((index + 1) / 13)
 
 class deck:
   def __init__(self):
@@ -38,11 +38,10 @@ class deck:
     self.draw_n_times(new_owner, 1)
     
   def give(self, index, new_owner):
-    print(self.drawn[index] + " to " + new_owner)
     self.drawn[index] = new_owner
     
   def shuffle(self, from_owner):
-    for x in range(0,52):
+    for x in range(1,52):
       if(self.drawn[x] == from_owner or from_owner == "All" and self.drawn[x] != "Dealer"):
         self.drawn[x] = "Dealer"
         self.decksize+=1
@@ -55,13 +54,13 @@ class deck:
     return stack_size
 
   def show_owner(self, owner):
-    for x in range(0,52):
+    for x in range(1,52):
       if self.drawn[x] == owner:
         print(index_to_card(x), end =" ")
     print("")
     
   def show_owner_hidden(self, owner):
-    for x in range(0,52):
+    for x in range(1,52):
       if self.drawn[x] == owner:
         print("[//]", end =" ")
     print("")
@@ -85,20 +84,37 @@ class deck:
 
 
   def show_score(self,player):
-    score = "High Card"
+    score = "Nothing"
     values = []
     royals = [0,0,0,0]
     suit_totals = [0,0,0,0]
+    streak = 0
+    straight = 0
     for v in range(0,12):
       values.append(0)
     for x in range(0,52):
       if self.drawn[x] == player:
         value = index_to_value(x)
         suit = index_to_suit(x)
-        values[value] += 1
-        suit_totals[suit] += 1
-        if value >= 10:
-          royals[12-value] += 1
+        values[value - 1] += 1
+        suit_totals[suit - 1] += 1
+        if value == 11:
+          royals[1] += 1
+        if value == 12:
+          royals[2] += 1
+        if value == 0:
+          royals[3] +=1
+        if value == 1:
+          royals[0] += 1
+    for s in range(0,12):
+      if values[s] > 0:
+        streak += 1
+      if values[s] <= 0:
+        streak = 0
+      if streak >= 5:
+        straight = 1
+    if sum(values[10:]) > 0:
+      score = "High Card"
     if 2 in values:
       score = "One Pair"
     if 3 in values:
@@ -109,6 +125,14 @@ class deck:
       score = "Three Pair"
     if 5 in suit_totals:
       score = "Flush"
+    if straight >= 1:
+      score = "Straight"
+    if 5 in suit_totals and straight >=1:
+      score = "Straight Flush"
+    if sum(royals) >= 5:
+      score = "Full House"
+    if sum(royals) >= 5 and 5 in suit_totals:
+      score = "Royal Flush"
     print(score, end ="       ")
 
   def calculate_score(self, player):
@@ -116,26 +140,51 @@ class deck:
     values = []
     royals = [0,0,0,0]
     suit_totals = [0,0,0,0]
+    streak = 0
+    straight = 0
     for v in range(0,12):
       values.append(0)
     for x in range(0,52):
       if self.drawn[x] == player:
         value = index_to_value(x)
         suit = index_to_suit(x)
-        values[value] += 1
-        suit_totals[suit] += 1
-        if value >= 10:
-          royals[12-value] += 1
-    if 2 in values:
+        values[value - 1] += 1
+        suit_totals[suit - 1] += 1
+        if value == 11:
+          royals[1] += 1
+        if value == 12:
+          royals[2] += 1
+        if value == 0:
+          royals[3] +=1
+        if value == 1:
+          royals[0] += 1
+    for s in range(0,12):
+      if values[s] > 0:
+        streak += 1
+      if values[s] <= 0:
+        streak = 0
+      if streak >= 5:
+        straight = 1
+    if sum(values[10:]) > 0:
       score = 1
-    if 3 in values:
+    if 2 in values:
       score = 2
-    if values.count(2) == 2:
+    if 3 in values:
       score = 3
-    if values.count(2) == 3:
+    if values.count(2) == 2:
       score = 4
-    if 5 in suit_totals:
+    if values.count(2) == 3:
       score = 5
+    if 5 in suit_totals:
+      score = 6
+    if straight >= 1:
+      score = 7
+    if 5 in suit_totals and straight >=1:
+      score = 8
+    if sum(royals) >= 5:
+      score = 9
+    if sum(royals) >= 5 and 5 in suit_totals:
+      score = 10
     return score
         
 
@@ -279,7 +328,7 @@ class deck:
         self.next_phase()
         self.menu(0,player)
       if self.phase == "Show Phase":
-        self.winlose("folded", "opponent")
+        self.winlose(player, "opponent")
         self.next_phase()
         return self.menu(0, player)
       else:
