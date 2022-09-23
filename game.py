@@ -193,8 +193,6 @@ class deck:
     if self.phase == "Draw Phase":
       if self.winner != "None" and self.winner != "Draw":
         print("winner is: " + self.winner + "!")
-        self.show_owner(self.winner)
-        self.show_score(self.winner)
         print("")
         print("")
       if self.winner == "Draw":
@@ -209,7 +207,11 @@ class deck:
     if self.phase == "Bet Phase":
       burn_prompt = "Burn a stack card into the pot"
     self.show_stacks("opponent\'s stack")
-    self.show_owner_hidden("opponent")
+    if self.phase == "Draw Phase":
+        self.show_owner(self.winner)
+        self.show_score(self.winner)
+    else:
+        self.show_owner_hidden("opponent")
     print("")
     print("")
     print("")
@@ -370,6 +372,7 @@ class deck:
     self.draw_n_times(opponent,5)
     self.draw_n_times(player + "\'s stack", 3)
     self.draw_n_times(opponent + "\'s stack", 3)
+    self.draw_n_times("Pot",2)
     self.menu(0, player)
 
 
