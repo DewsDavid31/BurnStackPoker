@@ -287,7 +287,7 @@ class deck:
     self.show_table(player)
     prompt = "Enter a number to swap/select: "
     if self.phase == "Draw Phase":
-      prompt = "any key to deal again: "
+      prompt = "Enter a number to call and deal again: "
     if self.phase == "Bet Phase":
       prompt = "Select a card to use as betting chip: "
     if selection == 0:
@@ -297,6 +297,8 @@ class deck:
         self.shuffle("opponent")
         self.draw_n_times(player,5)
         self.draw_n_times("opponent",5)
+        self.give(self.find_next("opponent\'s stack"), "Pot")
+        self.give(self.find_next(player + "\'s stack"), "Pot")
         self.next_phase()
         self.menu(0,player)
       if select in SPECIAL_INPUT:
@@ -308,6 +310,8 @@ class deck:
         self.shuffle("opponent")
         self.draw_n_times(player,5)
         self.draw_n_times("opponent",5)
+        self.give(self.find_next("opponent\'s stack"), "Pot")
+        self.give(self.find_next(player + "\'s stack"), "Pot")
         self.next_phase()
         self.menu(0,player)
       if self.phase == "Show Phase":
@@ -325,6 +329,8 @@ class deck:
         self.shuffle("opponent")
         self.draw_n_times(player,5)
         self.draw_n_times("opponent",5)
+        self.give(self.find_next("opponent\'s stack"), "Pot")
+        self.give(self.find_next(player + "\'s stack"), "Pot")
         self.next_phase()
         self.menu(0,player)
       if self.phase == "Show Phase":
@@ -344,6 +350,8 @@ class deck:
         self.shuffle("opponent")
         self.draw_n_times(player,5)
         self.draw_n_times("opponent",5)
+        self.give(self.find_next("opponent\'s stack"), "Pot")
+        self.give(self.find_next(player + "\'s stack"), "Pot")
         self.next_phase()
         self.menu(0,player)
       if self.phase == "Show Phase":
