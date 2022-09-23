@@ -9,6 +9,12 @@ def index_to_card(index):
   value = VALUES[((index + 1) % 4) - 1]
   return "[" + suit + value + "]"
 
+def index_to_value(index):
+  return ((index + 1) % 4) - 1
+
+def index_to_suit(index):
+  return round((index + 1) / 12) - 1
+
 class deck:
   def __init__(self):
     self.drawn = [];
@@ -75,10 +81,41 @@ class deck:
     print("")
 
 
+  def show_score(self,player):
+    score = "High Card"
+    values = []
+    royals = [0,0,0,0]
+    suit_totals = [0,0,0,0]
+    for v in range(0,12):
+      values.append(0)
+    for x in range(0,52):
+      if self.drawn[x] == player:
+        value = index_to_value(x)
+        suit = index_to_suit(x)
+        values[value] += 1
+        suit_totals[suit] += 1
+        if value >= 10:
+          royals[12-value] += 1
+    if 2 in values:
+      score = "One Pair"
+    if 3 in values:
+      score = "Three of a kind"
+    if values.count(2) == 2:
+      score = "Two Pair"
+    if values.count(2) == 3:
+      score = "Three Pair"
+    if 5 in suit_totals:
+      score = "Flush"
+    print(score, end ="       ")
+    
+        
+
   def show_table(self, player):
     burn_prompt = "Burn a card into hand"
     if self.phase == "Bet Phase":
       burn_prompt = "Bet a card from stack"
+    if self.phase == "Show Phase":
+      burn_prompt = "To Fold: "
     self.show_stacks("opponent\'s stack")
     self.show_owner_hidden("opponent")
     print("")
@@ -94,8 +131,11 @@ class deck:
     print("")
     self.show_owner(player)
     next_card = self.find_num_owner(player)
-    for x in range(1, next_card + 1):
-      print(str(x) + "    ", end = "")
+    if self.phase == "Show Phase":
+      self.show_score(player)
+    else:
+      for x in range(1, next_card + 1):
+        print(str(x) + "    ", end = "")
     if(self.find_num_owner(player + "\'s stack") >= 1):
       print(str(next_card + 1) + ": " + burn_prompt)
     self.show_stacks(player + "\'s stack")
@@ -114,13 +154,19 @@ class deck:
           return x
         current+=1
     return -1
+
+  def win(self, player):
+    for x in range(0,52):
+      if self.drawn[x] == "Pot":
+        self.give(x, player + "\'s stack")
   
   def clear_screen(self):
     for x in range(60):
       print("")
-
+  
   def next_phase(self):
     self.phase = PHASES[((PHASES.index(self.phase) + 1) % len(PHASES))]
+    
   def menu(self, selection, player):
     self.clear_screen()
     self.show_table(player)
@@ -133,7 +179,12 @@ class deck:
         return self.menu(select, player)
       return self.menu(int(select), player)
     elif selection == self.find_num_owner(player) + 1:
-      if self.phase == "Bet Phase":
+      if self.phase == "Show Phase":
+        self.shuffle(player)
+        self.draw_n_times(player,5)
+        self.next_phase()
+        return self.menu(0, player)
+      elif self.phase == "Bet Phase":
         self.give(self.find_next(player + "\'s stack"), "Pot")
         return self.menu(0,player)
       self.give(self.find_next(player + "\'s stack"), player)
@@ -142,9 +193,15 @@ class deck:
       self.next_phase()
       self.menu(0,player)
     else:
-      if self.phase == "Bet Phase":
+      if self.phase == "Show Phase":
+        self.win(player)
+        self.shuffle(player)
+        self.draw_n_times(player,5)
+        self.next_phase()
+        return self.menu(0, player)
+      elif self.phase == "Bet Phase":
         self.give(self.find_next_index(player, int(selection)),"Pot")
-      return self.menu(0, player)
+        return self.menu(0, player)
       self.give(self.find_next_index(player, int(selection)), "Discard")
       self.draw(player)
       return self.menu(0, player)
