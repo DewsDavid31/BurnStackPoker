@@ -1,7 +1,7 @@
 import random as rand
 SUITS = "♥♦♠♣"
 VALUES = "123456789JQK"
-PHASES = ["Bet Phase", "Burn and Swap Phase", "Show Phase"]
+PHASES = ["Bet Phase", "Burn and Swap Phase", "Show Phase","Draw Phase"]
 SPECIAL_INPUT=['p','P']
 
 def index_to_card(index):
@@ -20,10 +20,13 @@ class deck:
     self.drawn = [];
     self.decksize = 52;
     self.phase = PHASES[0]
+    self.winner = "None"
     for x in range(0,52):
       self.drawn.append("Dealer")
 
   def draw_n_times(self, new_owner, times):
+    if self.decksize <= times:
+      self.shuffle("Discard")
     for x in range(times):
       selection = rand.randint(0,51)
       while(self.drawn[selection] != "Dealer"):
@@ -107,15 +110,55 @@ class deck:
     if 5 in suit_totals:
       score = "Flush"
     print(score, end ="       ")
-    
+
+  def calculate_score(self, player):
+    score = 0
+    values = []
+    royals = [0,0,0,0]
+    suit_totals = [0,0,0,0]
+    for v in range(0,12):
+      values.append(0)
+    for x in range(0,52):
+      if self.drawn[x] == player:
+        value = index_to_value(x)
+        suit = index_to_suit(x)
+        values[value] += 1
+        suit_totals[suit] += 1
+        if value >= 10:
+          royals[12-value] += 1
+    if 2 in values:
+      score = 1
+    if 3 in values:
+      score = 2
+    if values.count(2) == 2:
+      score = 3
+    if values.count(2) == 3:
+      score = 4
+    if 5 in suit_totals:
+      score = 5
+    return score
         
 
   def show_table(self, player):
-    burn_prompt = "Burn a card into hand"
-    if self.phase == "Bet Phase":
+    burn_prompt = "Burn a stack card into hand"
+    if self.phase == "Draw Phase":
+      if self.winner != "None" and self.winner != "Draw":
+        print("winner is: " + self.winner + "!")
+        self.show_owner(self.winner)
+        self.show_score(self.winner)
+        print("")
+        print("")
+      if self.winner == "Draw":
+        print("Draw! Split pot!")
+        self.show_owner(player)
+        self.show_owner("opponent")
+        print("")
+        print("")
       burn_prompt = "Bet a card from stack"
     if self.phase == "Show Phase":
-      burn_prompt = "To Fold: "
+      burn_prompt = "To Fold "
+    if self.phase == "Bet Phase":
+      burn_prompt = "Burn a stack card into the pot"
     self.show_stacks("opponent\'s stack")
     self.show_owner_hidden("opponent")
     print("")
@@ -133,11 +176,12 @@ class deck:
     next_card = self.find_num_owner(player)
     if self.phase == "Show Phase":
       self.show_score(player)
+      print("Enter F: " + burn_prompt)
     else:
       for x in range(1, next_card + 1):
         print(str(x) + "    ", end = "")
-    if(self.find_num_owner(player + "\'s stack") >= 1):
-      print(str(next_card + 1) + ": " + burn_prompt)
+      if(self.find_num_owner(player + "\'s stack") >= 1):
+        print(str(next_card + 1) + ": " + burn_prompt)
     self.show_stacks(player + "\'s stack")
 
   def find_next(self, owner):
@@ -155,10 +199,32 @@ class deck:
         current+=1
     return -1
 
-  def win(self, player):
+  def winlose(self, player, opponent):
+    winner = "None"
+    player_score = self.calculate_score(player)
+    opp_score = self.calculate_score(opponent)
+    if player_score > opp_score:
+      winner = player
+    elif player_score < opp_score:
+      winner = opponent
+    else:
+      self.winner = "Draw"
+      alternate = player
+      for y in range(0,52):
+        if self.drawn[y] == "Pot":
+          self.give(y,alternate + "\'s stack")
+          if alternate == player:
+            alternate = opponent
+          else:
+            alternate =player
+    self.winner = winner
     for x in range(0,52):
       if self.drawn[x] == "Pot":
-        self.give(x, player + "\'s stack")
+        self.give(x, winner + "\'s stack")
+    if self.find_next_index(player + "\'s stack",0) == -1:
+      self.draw_n_times(player + "\'s stack",3)
+    if self.find_next_index(opponent + "\'s stack",0) == -1:
+      self.draw_n_times(opponent + "\'s stack",3)
   
   def clear_screen(self):
     for x in range(60):
@@ -171,17 +237,32 @@ class deck:
     self.clear_screen()
     self.show_table(player)
     prompt = "Enter a number to swap/select: "
+    if self.phase == "Draw Phase":
+      prompt = "any key to deal again: "
     if self.phase == "Bet Phase":
       prompt = "Select a card to use as betting chip: "
     if selection == 0:
       select = input(prompt)
+      if self.phase == "Draw Phase":
+        self.shuffle(player)
+        self.shuffle("opponent")
+        self.draw_n_times(player,5)
+        self.draw_n_times("opponent",5)
+        self.next_phase()
+        self.menu(0,player)
       if select in SPECIAL_INPUT:
         return self.menu(select, player)
       return self.menu(int(select), player)
     elif selection == self.find_num_owner(player) + 1:
-      if self.phase == "Show Phase":
+      if self.phase == "Draw Phase":
         self.shuffle(player)
+        self.shuffle("opponent")
         self.draw_n_times(player,5)
+        self.draw_n_times("opponent",5)
+        self.next_phase()
+        self.menu(0,player)
+      if self.phase == "Show Phase":
+        self.winlose("folded", "opponent")
         self.next_phase()
         return self.menu(0, player)
       elif self.phase == "Bet Phase":
@@ -190,13 +271,34 @@ class deck:
       self.give(self.find_next(player + "\'s stack"), player)
       return self.menu(0, player)
     elif selection == 'P' or selection == 'p':
-      self.next_phase()
-      self.menu(0,player)
-    else:
-      if self.phase == "Show Phase":
-        self.win(player)
+      if self.phase == "Draw Phase":
         self.shuffle(player)
+        self.shuffle("opponent")
         self.draw_n_times(player,5)
+        self.draw_n_times("opponent",5)
+        self.next_phase()
+        self.menu(0,player)
+      if self.phase == "Show Phase":
+        self.winlose("folded", "opponent")
+        self.next_phase()
+        return self.menu(0, player)
+      else:
+        self.next_phase()
+        self.menu(0,player)
+    elif selection == 'f' or selection == 'F' and self.phase == "Show Phase":
+      self.winlose("folded", "opponent")
+      self.next_phase()
+      return self.menu(0, player)
+    else:
+      if self.phase == "Draw Phase":
+        self.shuffle(player)
+        self.shuffle("opponent")
+        self.draw_n_times(player,5)
+        self.draw_n_times("opponent",5)
+        self.next_phase()
+        self.menu(0,player)
+      if self.phase == "Show Phase":
+        self.winlose(player, "opponent")
         self.next_phase()
         return self.menu(0, player)
       elif self.phase == "Bet Phase":
