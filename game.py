@@ -17,6 +17,7 @@ def index_to_suit(index):
 
 class deck:
   def __init__(self):
+    self.swaps = 0
     self.drawn = [];
     self.decksize = 52;
     self.phase = PHASES[0]
@@ -347,6 +348,10 @@ class deck:
       self.next_phase()
       return self.menu(0, player)
     else:
+      if self.swaps >= 2:
+        self.next_phase()
+        self.swaps = 0
+        self.menu(0, player)
       if self.phase == "Draw Phase":
         self.shuffle(player)
         self.shuffle("opponent")
@@ -365,6 +370,7 @@ class deck:
         return self.menu(0, player)
       self.give(self.find_next_index(player, int(selection)), "Discard")
       self.draw(player)
+      self.swaps += 1
       return self.menu(0, player)
       
   def start_game(self, player, opponent):
